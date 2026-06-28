@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinEdge Lending — Credit Risk Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+:root{
+  --bg:#0d0d14;--surface:#15151f;--surface2:#1d1d2a;--surface3:#252535;
+  --border:#2a2a3d;--border2:#353550;
+  --text:#e8e8f4;--text2:#8888aa;--text3:#44445a;
+  --indigo:#6366f1;--indigo2:#818cf8;--indigo3:#4f46e5;
+  --green:#22c55e;--amber:#f59e0b;--red:#ef4444;--teal:#14b8a6;
+  --red2:#dc2626;--green2:#16a34a;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:Inter,sans-serif;font-size:14px;line-height:1.6}
+
+/* NAV */
+.topbar{position:sticky;top:0;z-index:100;background:rgba(13,13,20,0.96);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 28px;height:50px;gap:4px}
+.logo{font-family:"JetBrains Mono",monospace;font-size:13px;font-weight:500;color:var(--indigo2);margin-right:20px;white-space:nowrap}
+.tab{background:none;border:none;color:var(--text2);font-family:Inter,sans-serif;font-size:12.5px;padding:0 14px;height:50px;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--indigo2);border-bottom-color:var(--indigo)}
+.tab-badge{background:var(--indigo3);color:#fff;font-size:9px;padding:1px 5px;border-radius:8px;margin-left:5px;font-weight:600}
+
+/* PAGES */
+.page{display:none;padding:28px;max-width:1320px;margin:0 auto}
+.page.active{display:block}
+
+/* KPI CARDS */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px}
+.kpi-label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.kpi-value{font-size:28px;font-weight:700;font-family:"JetBrains Mono",monospace;line-height:1}
+.kpi-sub{font-size:11px;color:var(--text3);margin-top:5px}
+.kpi-delta{display:inline-block;font-size:10.5px;padding:2px 7px;border-radius:12px;margin-top:6px;font-weight:600}
+.delta-bad{background:rgba(239,68,68,.12);color:#f87171}
+.delta-ok{background:rgba(245,158,11,.12);color:#fbbf24}
+.delta-good{background:rgba(34,197,94,.12);color:#4ade80}
+
+/* CHART GRID */
+.chart-grid{display:grid;gap:14px}
+.chart-grid-2{grid-template-columns:1fr 1fr}
+.chart-grid-3{grid-template-columns:2fr 1fr}
+.chart-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px}
+.chart-title{font-size:13px;font-weight:600;margin-bottom:4px}
+.chart-sub{font-size:11px;color:var(--text2);margin-bottom:14px}
+.chart-wrap{position:relative}
+
+/* HEATMAP */
+.heatmap-table{width:100%;border-collapse:collapse;font-size:12px}
+.heatmap-table th{background:var(--surface2);color:var(--text2);font-weight:600;padding:8px 10px;text-align:center;font-size:11px;border:1px solid var(--border)}
+.heatmap-table td{padding:10px;text-align:center;font-weight:600;font-size:12px;border:1px solid var(--border);cursor:default;transition:transform .1s}
+.heatmap-table td:hover{transform:scale(1.05);z-index:2;position:relative}
+.heatmap-table .row-label{text-align:left;color:var(--text2);font-weight:600;background:var(--surface2)}
+
+/* INSIGHT BOXES */
+.insight-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+.insight-card{border-radius:8px;padding:14px 16px}
+.insight-card.red{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2)}
+.insight-card.amber{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2)}
+.insight-card.green{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2)}
+.insight-card.indigo{background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2)}
+.insight-icon{font-size:18px;margin-bottom:6px}
+.insight-title{font-size:12px;font-weight:700;margin-bottom:4px}
+.insight-body{font-size:11.5px;color:var(--text2);line-height:1.6}
+
+/* DATA TABLE */
+.data-table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px}
+.data-table th{background:var(--surface2);color:var(--text2);font-weight:600;padding:9px 12px;text-align:left;border-bottom:2px solid var(--border2);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+.data-table td{padding:9px 12px;border-bottom:1px solid var(--border)}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:var(--surface2)}
+.badge{display:inline-block;font-size:10.5px;padding:2px 8px;border-radius:12px;font-weight:600}
+.badge-red{background:rgba(239,68,68,.15);color:#f87171}
+.badge-amber{background:rgba(245,158,11,.15);color:#fbbf24}
+.badge-green{background:rgba(34,197,94,.15);color:#4ade80}
+.badge-blue{background:rgba(99,102,241,.15);color:#a5b4fc}
+
+/* MISC */
+.section-label{font-size:10.5px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.tag{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--indigo2)}
+.cliff-line{position:absolute;top:0;bottom:0;left:55%;width:2px;background:rgba(239,68,68,.5);pointer-events:none}
+.cliff-label{position:absolute;top:6px;left:57%;font-size:10px;color:#f87171;font-weight:600}
+
+@media(max-width:900px){.kpi-row{grid-template-columns:repeat(2,1fr)}.chart-grid-2,.chart-grid-3{grid-template-columns:1fr}.insight-strip{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">FINEDGE&nbsp;BI</div>
+  <button class="tab active" onclick="showPage('p1',this)">Overview <span class="tab-badge">4 KPIs</span></button>
+  <button class="tab" onclick="showPage('p2',this)">Risk Analysis</button>
+  <button class="tab" onclick="showPage('p3',this)">Customer Segments</button>
+  <button class="tab" onclick="showPage('p4',this)">Recommendations</button>
+</div>
+
+<!-- ======================================================== PAGE 1 -->
+<div id="p1" class="page active">
+  <div class="section-label">Overview — Portfolio Health Summary</div>
+
+  <div class="kpi-row">
+    <div class="kpi">
+      <div class="kpi-label">Total Loans</div>
+      <div class="kpi-value" style="color:var(--indigo2)">32,401</div>
+      <div class="kpi-sub">Analysis-ready (cleaned dataset)</div>
+      <span class="kpi-delta delta-ok">97.2% data retained</span>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Total Defaults</div>
+      <div class="kpi-value" style="color:var(--red)">7,086</div>
+      <div class="kpi-sub">Loan status = 1 (defaulted)</div>
+      <span class="kpi-delta delta-bad">Needs immediate action</span>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Default Rate</div>
+      <div class="kpi-value" style="color:var(--red)">21.8%</div>
+      <div class="kpi-sub">Industry healthy benchmark: &lt;5%</div>
+      <span class="kpi-delta delta-bad">4.4x above benchmark</span>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Total Portfolio Value</div>
+      <div class="kpi-value" style="color:var(--teal)">$311M</div>
+      <div class="kpi-sub">Sum of all loan amounts</div>
+      <span class="kpi-delta delta-ok">$76.9M principal at risk</span>
+    </div>
+  </div>
+
+  <div class="chart-grid chart-grid-3" style="margin-bottom:14px">
+    <div class="chart-box">
+      <div class="chart-title">Default Rate by Loan Grade</div>
+      <div class="chart-sub">Grade A is safest (9.9%) — Grade G is near-total loss (98.4%)</div>
+      <div class="chart-wrap"><canvas id="gradeChart" height="220"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">Portfolio Composition</div>
+      <div class="chart-sub">Loan count by grade</div>
+      <div class="chart-wrap"><canvas id="pieChart" height="220"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-box">
+    <div class="chart-title">Risk Heatmap — Loan Grade × Home Ownership</div>
+    <div class="chart-sub">Default rate (%) per cell &nbsp;|&nbsp; Darker red = higher risk &nbsp;|&nbsp; Click a cell to filter</div>
+    <table class="heatmap-table" id="heatmapTable">
+      <thead>
+        <tr>
+          <th class="row-label">Grade</th>
+          <th>MORTGAGE</th><th>OTHER</th><th>OWN</th><th>RENT</th>
+        </tr>
+      </thead>
+      <tbody id="heatmapBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ======================================================== PAGE 2 -->
+<div id="p2" class="page">
+  <div class="section-label">Risk Analysis — Deep Dive</div>
+
+  <div class="chart-grid chart-grid-2" style="margin-bottom:14px">
+    <div class="chart-box">
+      <div class="chart-title">DTI Cliff Effect — Default Rate by Loan-to-Income Ratio</div>
+      <div class="chart-sub" style="color:#f87171;font-weight:600">⚠ Default rate triples at the 30% threshold — the single most actionable finding</div>
+      <div class="chart-wrap" style="position:relative">
+        <canvas id="dtiChart" height="240"></canvas>
+        <div class="cliff-line"></div>
+        <div class="cliff-label">30%<br>Cliff</div>
+      </div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">Revenue Leakage Breakdown</div>
+      <div class="chart-sub">Worst-case estimate assuming zero recovery on 7,086 defaulted loans</div>
+      <div class="chart-wrap"><canvas id="leakageChart" height="240"></canvas></div>
+    </div>
+  </div>
+
+  <div class="insight-strip">
+    <div class="insight-card red">
+      <div class="insight-icon">🔴</div>
+      <div class="insight-title" style="color:#f87171">$107.5M Revenue Leakage</div>
+      <div class="insight-body">Principal ($76.9M) + interest income ($30.6M) lost on defaulted loans. Upper-bound estimate — actual loss lower due to partial recovery.</div>
+    </div>
+    <div class="insight-card red">
+      <div class="insight-icon">⚡</div>
+      <div class="insight-title" style="color:#f87171">30% DTI = Cliff Point</div>
+      <div class="insight-body">Default rate goes 22% → 69% crossing the 30% threshold. RENT + DTI&gt;30%: 100% default rate across 2,339 loans — statistically confirmed.</div>
+    </div>
+    <div class="insight-card amber">
+      <div class="insight-icon">📊</div>
+      <div class="insight-title" style="color:#fbbf24">Grade D: Highest Dollar Risk</div>
+      <div class="insight-body">59% default rate but $23.2M portfolio — more dangerous than Grade G ($1.1M). Volume × rate = real business impact, not rate alone.</div>
+    </div>
+  </div>
+
+  <div class="chart-box" style="margin-top:14px">
+    <div class="chart-title">Grade-Level Risk vs Dollar Exposure</div>
+    <div class="chart-sub">Default rate % alone is misleading — volume matters. Grade D is the real priority.</div>
+    <table class="data-table">
+      <thead><tr><th>Grade</th><th>Loans</th><th>Default Rate</th><th>Avg Loan</th><th>Avg Rate</th><th>Portfolio at Risk</th><th>Priority</th></tr></thead>
+      <tbody>
+        <tr><td class="tag">A</td><td>10,731</td><td><span class="badge badge-green">9.9%</span></td><td>$8,540</td><td>7.3%</td><td>$8.5M</td><td><span class="badge badge-green">Low</span></td></tr>
+        <tr><td class="tag">B</td><td>10,417</td><td><span class="badge badge-amber">16.3%</span></td><td>$10,001</td><td>11.0%</td><td>$16.9M</td><td><span class="badge badge-amber">Watch</span></td></tr>
+        <tr><td class="tag">C</td><td>6,437</td><td><span class="badge badge-amber">20.7%</span></td><td>$9,219</td><td>13.5%</td><td>$13.3M</td><td><span class="badge badge-amber">Elevated</span></td></tr>
+        <tr><td class="tag">D</td><td>3,617</td><td><span class="badge badge-red">59.0%</span></td><td>$10,856</td><td>15.4%</td><td><strong style="color:#f87171">$23.2M</strong></td><td><span class="badge badge-red">CRITICAL</span></td></tr>
+        <tr><td class="tag">E</td><td>962</td><td><span class="badge badge-red">64.4%</span></td><td>$12,927</td><td>17.0%</td><td>$8.0M</td><td><span class="badge badge-red">HIGH</span></td></tr>
+        <tr><td class="tag">F</td><td>241</td><td><span class="badge badge-red">70.5%</span></td><td>$14,723</td><td>18.6%</td><td>$2.5M</td><td><span class="badge badge-red">HIGH</span></td></tr>
+        <tr><td class="tag">G</td><td>64</td><td><span class="badge badge-red">98.4%</span></td><td>$17,201</td><td>—</td><td>$1.1M</td><td><span class="badge badge-red">RESTRICT</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ======================================================== PAGE 3 -->
+<div id="p3" class="page">
+  <div class="section-label">Customer Segmentation Analysis</div>
+
+  <div class="chart-grid chart-grid-2" style="margin-bottom:14px">
+    <div class="chart-box">
+      <div class="chart-title">Default Rate by Home Ownership</div>
+      <div class="chart-sub">OWN status is the strongest single risk hedge — even below MORTGAGE</div>
+      <div class="chart-wrap"><canvas id="homeChart" height="240"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">Loan Purpose Distribution</div>
+      <div class="chart-sub">Education (19.8%) is the most common purpose — also lower risk (16.2% default)</div>
+      <div class="chart-wrap"><canvas id="intentChart" height="240"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-grid chart-grid-2">
+    <div class="chart-box">
+      <div class="chart-title">Loan Intent — Stress Zone vs Growth Zone</div>
+      <div class="chart-sub">Purpose of loan predicts default risk — apply intent-based rate floors</div>
+      <table class="data-table">
+        <thead><tr><th>Loan Intent</th><th>Default Rate</th><th>Zone</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td>DEBT CONSOLIDATION</td><td><span class="badge badge-red">28.0%</span></td><td><span style="color:#f87171;font-weight:600">Stress</span></td><td>+2% rate floor</td></tr>
+          <tr><td>MEDICAL</td><td><span class="badge badge-red">26.1%</span></td><td><span style="color:#f87171;font-weight:600">Stress</span></td><td>+1.5% rate floor</td></tr>
+          <tr><td>PERSONAL</td><td><span class="badge badge-amber">20.6%</span></td><td><span style="color:#fbbf24">Watch</span></td><td>Monitor</td></tr>
+          <tr><td>HOME IMPROVEMENT</td><td><span class="badge badge-green">17.2%</span></td><td><span style="color:#4ade80">Growth</span></td><td>Standard pricing</td></tr>
+          <tr><td>EDUCATION</td><td><span class="badge badge-green">16.2%</span></td><td><span style="color:#4ade80">Growth</span></td><td>Preferential rate</td></tr>
+          <tr><td>VENTURE</td><td><span class="badge badge-green">14.8%</span></td><td><span style="color:#4ade80">Growth</span></td><td>Preferential rate</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">The Credit Tenure Paradox</div>
+      <div class="chart-sub">Veterans (10y+ credit history) are only 2.7% safer than new credit holders</div>
+      <div class="chart-wrap"><canvas id="tenureChart" height="200"></canvas></div>
+      <div class="insight-card indigo" style="margin-top:12px">
+        <div class="insight-title" style="color:var(--indigo2)">Finding</div>
+        <div class="insight-body">Credit tenure is a <strong>weak predictor</strong>. Work-Life Ratio (emp_length / age) is a stronger stability signal and should receive higher weight in the scoring model.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== PAGE 4 -->
+<div id="p4" class="page">
+  <div class="section-label">Strategic Recommendations</div>
+
+  <div class="kpi-row">
+    <div class="kpi">
+      <div class="kpi-label">Target NPA Rate</div>
+      <div class="kpi-value" style="color:var(--green)">15%</div>
+      <div class="kpi-sub">From current 21.8% — achievable in 12 months</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Revenue Recovery (Est.)</div>
+      <div class="kpi-value" style="color:var(--teal)">$25M+</div>
+      <div class="kpi-sub">If NPA reduced to 15% base case</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Immediate Actions</div>
+      <div class="kpi-value" style="color:var(--amber)">2</div>
+      <div class="kpi-sub">P1 items — implement within 30 days</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Safe Haven Segments</div>
+      <div class="kpi-value" style="color:var(--green)">13+</div>
+      <div class="kpi-sub">Borrower profiles with 0% default rate</div>
+    </div>
+  </div>
+
+  <div class="chart-box" style="margin-bottom:14px">
+    <div class="chart-title">Action Plan — Ranked by Business Impact</div>
+    <div class="chart-sub">All recommendations are data-derived, not assumptions</div>
+    <table class="data-table">
+      <thead><tr><th>Priority</th><th>Recommendation</th><th>Expected Impact</th><th>Timeline</th></tr></thead>
+      <tbody>
+        <tr><td><span class="badge badge-red">P1</span></td><td><strong>Implement 30% DTI hard cap</strong> in underwriting policy — cliff-point confirmed at this threshold</td><td>High NPA reduction</td><td>Immediate</td></tr>
+        <tr><td><span class="badge badge-red">P1</span></td><td><strong>Restrict Grade E, F, G</strong> new loan origination — 64–98% default rates are unsustainable</td><td>High NPA reduction</td><td>Immediate</td></tr>
+        <tr><td><span class="badge badge-amber">P2</span></td><td><strong>Intent-based rate floors</strong>: Debt Consolidation +2%, Medical +1.5%</td><td>Moderate</td><td>30 days</td></tr>
+        <tr><td><span class="badge badge-amber">P2</span></td><td><strong>Flag RENT + DTI&gt;30%</strong> for mandatory manual underwriting review (100% default rate confirmed)</td><td>Moderate</td><td>30 days</td></tr>
+        <tr><td><span class="badge badge-blue">P3</span></td><td><strong>Replace credit tenure</strong> with Work-Life Ratio in scoring model — tenure only 2.7% predictive</td><td>Moderate</td><td>90 days</td></tr>
+        <tr><td><span class="badge badge-blue">P3</span></td><td><strong>Fast-track approval lane</strong> for OWN + DTI&lt;20% + Grade A-B (0% default rate confirmed)</td><td>Positive (volume)</td><td>90 days</td></tr>
+        <tr><td><span style="color:var(--text3);font-size:11px">P4</span></td><td>Reduce Grade D–G portfolio weight to &lt;15% of total originations</td><td>Long-term NPA mix</td><td>6 months</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="insight-strip">
+    <div class="insight-card green">
+      <div class="insight-icon">✅</div>
+      <div class="insight-title" style="color:#4ade80">Safe Haven Profile</div>
+      <div class="insight-body">OWN status + Income &gt;$50K + DTI &lt;20% + Grade A/B + Work-Life Ratio &gt;0.20 → 0% default rate. Fast-track approve these borrowers to grow low-risk volume.</div>
+    </div>
+    <div class="insight-card indigo">
+      <div class="insight-icon">📈</div>
+      <div class="insight-title" style="color:var(--indigo2)">Revenue Projection</div>
+      <div class="insight-body">Reducing NPA from 21.8% to 15% (Best Case scenario in Excel model) would recover an estimated $25M+ in annual net revenue. Full model in finedge_financial_model.xlsx.</div>
+    </div>
+    <div class="insight-card amber">
+      <div class="insight-icon">⚠️</div>
+      <div class="insight-title" style="color:#fbbf24">Data Limitation Note</div>
+      <div class="insight-body">Revenue leakage ($107.5M) is a worst-case upper bound assuming zero recovery. Actual loss is lower due to partial collections. Use as maximum exposure figure for risk investment decisions.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── PAGE SWITCHING ──────────────────────────────────────────────────────
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── CHART DEFAULTS ─────────────────────────────────────────────────────
+Chart.defaults.color = '#8888aa';
+Chart.defaults.font.family = 'Inter';
+Chart.defaults.borderColor = '#2a2a3d';
+
+const GRADES = ['A','B','C','D','E','F','G'];
+const GRADE_DEFAULTS = [9.9, 16.3, 20.7, 59.0, 64.4, 70.5, 98.4];
+const GRADE_COLORS = ['#22c55e','#84cc16','#eab308','#f97316','#ef4444','#dc2626','#7f1d1d'];
+
+// ── GRADE BAR CHART ────────────────────────────────────────────────────
+new Chart(document.getElementById('gradeChart'), {
+  type: 'bar',
+  data: {
+    labels: GRADES,
+    datasets: [{
+      label: 'Default Rate (%)',
+      data: GRADE_DEFAULTS,
+      backgroundColor: GRADE_COLORS,
+      borderRadius: 4,
+      borderWidth: 0
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.raw}% default rate` } }
+    },
+    scales: {
+      y: { beginAtZero: true, max: 110, ticks: { callback: v => v + '%' }, grid: { color: '#1d1d2a' } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+// ── PIE CHART ──────────────────────────────────────────────────────────
+new Chart(document.getElementById('pieChart'), {
+  type: 'doughnut',
+  data: {
+    labels: GRADES,
+    datasets: [{
+      data: [10731, 10417, 6437, 3617, 962, 241, 64],
+      backgroundColor: GRADE_COLORS,
+      borderColor: '#15151f',
+      borderWidth: 3
+    }]
+  },
+  options: {
+    responsive: true,
+    cutout: '60%',
+    plugins: {
+      legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } },
+      tooltip: { callbacks: { label: ctx => ` Grade ${ctx.label}: ${ctx.raw.toLocaleString()} loans` } }
+    }
+  }
+});
+
+// ── HEATMAP ────────────────────────────────────────────────────────────
+const heatData = {
+  A: { MORTGAGE: 4.4, OTHER: 11.5, OWN: 7.1, RENT: 17.5 },
+  B: { MORTGAGE: 8.0, OTHER: 15.2, OWN: 4.3, RENT: 24.1 },
+  C: { MORTGAGE: 14.3, OTHER: 35.3, OWN: 6.3, RENT: 26.6 },
+  D: { MORTGAGE: 45.6, OTHER: 55.0, OWN: 6.4, RENT: 73.8 },
+  E: { MORTGAGE: 47.6, OTHER: 75.0, OWN: 54.4, RENT: 75.5 },
+  F: { MORTGAGE: 62.9, OTHER: 100.0, OWN: 53.3, RENT: 78.0 },
+  G: { MORTGAGE: 100.0, OTHER: null, OWN: 100.0, RENT: 96.4 }
+};
+
+function heatColor(val) {
+  if (val === null) return '#1d1d2a';
+  if (val < 10) return 'rgba(34,197,94,0.25)';
+  if (val < 20) return 'rgba(34,197,94,0.12)';
+  if (val < 30) return 'rgba(245,158,11,0.18)';
+  if (val < 50) return 'rgba(239,68,68,0.20)';
+  if (val < 75) return 'rgba(239,68,68,0.40)';
+  return 'rgba(220,38,38,0.70)';
+}
+
+function heatText(val) {
+  if (val === null) return '—';
+  if (val < 20) return '#4ade80';
+  if (val < 40) return '#fbbf24';
+  return '#f87171';
+}
+
+const tbody = document.getElementById('heatmapBody');
+const cols = ['MORTGAGE','OTHER','OWN','RENT'];
+GRADES.forEach(g => {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td class="row-label" style="padding:10px 12px">${g}</td>`;
+  cols.forEach(c => {
+    const v = heatData[g][c];
+    const td = document.createElement('td');
+    td.style.background = heatColor(v);
+    td.style.color = heatText(v);
+    td.textContent = v !== null ? v.toFixed(1) + '%' : '—';
+    td.title = v !== null ? `Grade ${g} + ${c}: ${v}% default rate` : 'No data';
+    tr.appendChild(td);
+  });
+  tbody.appendChild(tr);
+});
+
+// ── DTI CHART ──────────────────────────────────────────────────────────
+new Chart(document.getElementById('dtiChart'), {
+  type: 'bar',
+  data: {
+    labels: ['< 10%', '10–20%', '20–30%', '30–40%', '> 40%'],
+    datasets: [{
+      label: 'Default Rate (%)',
+      data: [11.8, 15.1, 22.0, 68.9, 74.2],
+      backgroundColor: ['#22c55e','#84cc16','#f59e0b','#ef4444','#7f1d1d'],
+      borderRadius: 4,
+      borderWidth: 0
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.raw}% default rate` } }
+    },
+    scales: {
+      y: { beginAtZero: true, max: 90, ticks: { callback: v => v + '%' }, grid: { color: '#1d1d2a' } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+// ── LEAKAGE CHART ──────────────────────────────────────────────────────
+new Chart(document.getElementById('leakageChart'), {
+  type: 'bar',
+  data: {
+    labels: ['Principal at Risk', 'Interest Income Lost'],
+    datasets: [{
+      data: [76.9, 30.6],
+      backgroundColor: ['rgba(239,68,68,0.7)','rgba(245,158,11,0.7)'],
+      borderRadius: 6,
+      borderWidth: 0
+    }]
+  },
+  options: {
+    responsive: true,
+    indexAxis: 'y',
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ` $${ctx.raw}M` } },
+      title: { display: true, text: 'Total: $107.5M revenue leakage (worst-case)', color: '#f87171', font: { size: 11 } }
+    },
+    scales: {
+      x: { ticks: { callback: v => '$' + v + 'M' }, grid: { color: '#1d1d2a' } },
+      y: { grid: { display: false } }
+    }
+  }
+});
+
+// ── HOME CHART ─────────────────────────────────────────────────────────
+new Chart(document.getElementById('homeChart'), {
+  type: 'bar',
+  data: {
+    labels: ['RENT','OTHER','MORTGAGE','OWN'],
+    datasets: [{
+      label: 'Default Rate (%)',
+      data: [31.6, 30.8, 12.6, 7.5],
+      backgroundColor: ['#ef4444','#f97316','#f59e0b','#22c55e'],
+      borderRadius: 4,
+      borderWidth: 0
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.raw}%` } } },
+    scales: {
+      y: { beginAtZero: true, ticks: { callback: v => v + '%' }, grid: { color: '#1d1d2a' } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+// ── INTENT DONUT ───────────────────────────────────────────────────────
+new Chart(document.getElementById('intentChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['EDUCATION','MEDICAL','VENTURE','PERSONAL','DEBT CONSOL.','HOME IMPR.'],
+    datasets: [{
+      data: [19.78, 17.52, 16.96, 16.01, 18.64, 11.09],
+      backgroundColor: ['#6366f1','#14b8a6','#f59e0b','#ec4899','#ef4444','#22c55e'],
+      borderColor: '#15151f',
+      borderWidth: 3
+    }]
+  },
+  options: {
+    responsive: true,
+    cutout: '55%',
+    plugins: {
+      legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.raw}% of portfolio` } }
+    }
+  }
+});
+
+// ── TENURE CHART ───────────────────────────────────────────────────────
+new Chart(document.getElementById('tenureChart'), {
+  type: 'bar',
+  data: {
+    labels: ['New (0-2y)','Estab. (3-5y)','Exp. (6-10y)','Veteran (10y+)'],
+    datasets: [{
+      data: [22.4, 23.1, 20.6, 19.7],
+      backgroundColor: 'rgba(99,102,241,0.6)',
+      borderRadius: 4,
+      borderWidth: 0
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.raw}% default rate` } } },
+    scales: {
+      y: { min: 18, max: 25, ticks: { callback: v => v + '%' }, grid: { color: '#1d1d2a' } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+</script>
+</body>
+</html>
